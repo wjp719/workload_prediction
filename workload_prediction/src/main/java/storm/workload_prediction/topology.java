@@ -9,7 +9,7 @@ public class topology {
 
 	
 	public static void main(String[] args) throws Exception {
-		
+	
 	TopologyBuilder builder = new TopologyBuilder();
 	//虚拟机
 
