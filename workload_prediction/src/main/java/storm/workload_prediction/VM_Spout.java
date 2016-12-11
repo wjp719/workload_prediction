@@ -1,13 +1,8 @@
 package storm.workload_prediction;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import backtype.storm.spout.SpoutOutputCollector;
@@ -17,163 +12,93 @@ import backtype.storm.topology.base.BaseRichSpout;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Values;
 import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
 
-public class VM_Spout extends BaseRichSpout{
-
+public class VM_Spout extends BaseRichSpout {
+	//public class VM_Spout  {
 	SpoutOutputCollector _collector;
 	static String tenant_id = "56fc364c204043b98a438122568fbf14";
 	int pre_time;
 	int cur_time;
-	/*获取token*/
-	public static String getToken() throws Exception {
-		String urlPath = "HTTP://166.111.143.220:5000/v2.0/tokens";
-		String json="";
-		
-		URL url = new URL(urlPath);  
-		HttpURLConnection connection = (HttpURLConnection) url.openConnection();  
-		
-		 
-		connection.setDoOutput(true);
-		connection.setDoInput(true);
-		connection.setRequestMethod("POST");
-		connection.setRequestProperty("Content-Type", "application/json");
-		
-		String content = "{\"auth\": {\"tenantName\": \"admin\", \"passwordCredentials\": {\"username\": \"admin\", \"password\":\"cloud\"}}}";
-		
-		DataOutputStream out = new DataOutputStream(connection.getOutputStream());
-		
-		out.writeBytes(content);
-		out.flush();
-		out.close();
-		
-		
-        BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-        String inputline = null;
-        while((inputline = in.readLine())!=null)
-        {
-        	json = json+inputline;
-        }
-        
-       //解析json
-        //System.out.println(json);
-        JSONObject j =JSONObject.fromObject(json);
-        JSONObject access =JSONObject.fromObject(j.get("access").toString());
-        JSONObject token = JSONObject.fromObject(access.get("token").toString());
-        String id = token.get("id").toString();
-        //System.out.println(id);
-  
-        return id;
-       
-	}
-	
-	/*解析包含VM信息的json语句*/
-	public static void VM_parse(String input,ArrayList<VM> VM_List)
-	{
-		try {
-			
-			JSONObject obj = JSONObject.fromObject(input);		
-			
-			JSONArray severs = obj.getJSONArray("servers");
-			for (int i = 0; i < severs.size(); i++){
-				
-				JSONObject element = severs.getJSONObject(i);
-				String id = element.get("id").toString();
-				String name = element.get("name").toString();
 
-				VM vm = new VM();
-				vm.id = id;
-				vm.name = name;
-				VM_List.add(vm);
-			}
-			
-		}catch (Exception e) {   
-            e.printStackTrace();   
-        }
-	}
-	/*获取VM列表*/
-	public void get_VM(String token,ArrayList<VM> VM_List) throws IOException
-	{
-		String urlPath = "http://166.111.143.220:8774/v2/"+tenant_id+"/servers";
-		String json = "";
-		
-		URL url = new URL(urlPath);  
-		HttpURLConnection connection = (HttpURLConnection) url.openConnection();  
-		
-		connection.setDoOutput(true);
-		connection.setDoInput(true);
-		connection.setRequestMethod("GET");
-		connection.setRequestProperty("Content-Type", "application/json");
-		connection.setRequestProperty("X-Auth-Token", token);
-		
-		BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-
-		String inputline = null;
-        while((inputline = in.readLine())!=null)
-        {
-        	json = json + inputline;
-        	//System.out.println(inputline);
-        }
-
-        VM_parse(json,VM_List);
-
-	}
-	/*获取当前时间*/
-	public static int get_current_time(){
-		int current=0;
+	/* 获取当前时间 */
+	public static int get_current_time() {
+		int current = 0;
 		Date current_date = new Date();
 		int hour = current_date.getHours();
 		int minute = current_date.getMinutes();
-		int add=0;
-		if(minute>=30){
-			add=1;
+		int add = 0;
+		if (minute >= 30) {
+			add = 1;
 		}
-		current = 2*hour+add;
+		current = 2 * hour + add;
 		return current;
 	}
-	
+
 	public void open(Map conf, TopologyContext context, SpoutOutputCollector collector) {
 		// TODO Auto-generated method stub
 		_collector = collector;
 		pre_time = -1;
 	}
-	
-	/*查询数据 此节点负责查询内存数据*/
+
+	/* 查询数据 此节点负责查询内存数据 */
 	public void nextTuple() {
 		// TODO Auto-generated method stub
-		
-		cur_time = get_current_time();
-		if(pre_time!=cur_time)
-		{
-		pre_time = cur_time;
-		String token = "";//查询数据需要的
-		
-		//获取token
+
+		// cur_time = get_current_time();
+		// if (pre_time != cur_time) {
+		// pre_time = cur_time;
+		Property property = new Property();
+		String vm_metrics = property.getProperty("vm_metrics");
+		String[] meticarr = vm_metrics.split(",");
+		String token = null;
+		OpenStackOP op = new OpenStackOP();
+		List<String> run_vm_list = null;
 		try {
-			 token = getToken();
+			token = op.getToken();
+			run_vm_list = op.getVmList(token);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		//获取VM列表
-		ArrayList<VM> VM_List = new ArrayList<VM>();
+		System.out.println("run_vm_list"+run_vm_list.size());
+        
+		HashMap<String, Integer> vMap = new HashMap<String, Integer>();
+		for (int j = 0; j < run_vm_list.size(); j++) {
+			vMap.put(run_vm_list.get(j), 1);
+			//System.out.println("VM_Spout.nextTuple()");
+		}
+		InfluxdbOP influxdbOP = new InfluxdbOP();
+		for (int i = 0; i < meticarr.length; i++) {
+			String metic = meticarr[i];
+			JSONArray jArray = influxdbOP.getVMseries(metic);
+			System.out.println(metic+" "+jArray.size());
+			for (int j = 0; j < jArray.size(); j++) {
+				String instance = jArray.getString(j);
+				if (vMap.get(instance)!=null) {
+					_collector.emit(new Values(metic, instance));
+					//System.out.println("VM_Spout.nextTuple()" + metic + " " + instance);
+				}
+			}
+		}
 		try {
-			get_VM(token,VM_List);
-		} catch (IOException e) {
+			Thread.sleep(1000 * 10);
+		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		for(int i=0;i<VM_List.size();i++){
-			_collector.emit(new Values(VM_List.get(i).name,VM_List.get(i).id,token,get_current_time()));
-		}
-		
-		
-		}
-		
+		// }
+
 	}
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		VM_Spout v=new VM_Spout();
+		v.nextTuple();
+	}
+
 	public void declareOutputFields(OutputFieldsDeclarer declarer) {
 		// TODO Auto-generated method stub
-		declarer.declare(new Fields("name","id","token","current_time"));//VM信息以及查询所需的token
+		declarer.declare(new Fields("metrics", "instance"));// VM信息以及查询所需的token
 	}
 
 }
