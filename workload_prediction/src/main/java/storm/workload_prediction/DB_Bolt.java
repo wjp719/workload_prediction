@@ -21,15 +21,15 @@ public class DB_Bolt implements IRichBolt {
 	public void execute(Tuple input) {
 		// TODO Auto-generated method stub
 		//"metric", "instance", "prediction", "timelist"
-		System.out.println("DB_Bolt.execute()");
+		
 		String metric = input.getStringByField("metric");
 		String instance = input.getStringByField("instance");
 		double[] prediction = (double[]) input.getValueByField("prediction");
 		long[] timelist = (long[]) input.getValueByField("timelist");
-		System.out.println(metric+" "+instance);
-		for(int i=0;i<prediction.length;i++){
-			System.out.println(String.valueOf(prediction[i])+" "+String.valueOf(timelist[i]));
-		}
+		InfluxdbOP influxdbOP=new InfluxdbOP(2);
+		System.out.println("DB_Bolt.execute()"+timelist.length);
+		if(influxdbOP.writedata(metric, instance, prediction, timelist))
+			System.out.println("save to db "+metric+" "+instance);
 	}
 
 	public void cleanup() {

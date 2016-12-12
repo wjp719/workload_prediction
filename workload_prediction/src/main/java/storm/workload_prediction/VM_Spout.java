@@ -1,6 +1,5 @@
 package storm.workload_prediction;
 
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,27 +16,13 @@ public class VM_Spout extends BaseRichSpout {
 	//public class VM_Spout  {
 	SpoutOutputCollector _collector;
 	static String tenant_id = "56fc364c204043b98a438122568fbf14";
-	int pre_time;
-	int cur_time;
-
-	/* 获取当前时间 */
-	public static int get_current_time() {
-		int current = 0;
-		Date current_date = new Date();
-		int hour = current_date.getHours();
-		int minute = current_date.getMinutes();
-		int add = 0;
-		if (minute >= 30) {
-			add = 1;
-		}
-		current = 2 * hour + add;
-		return current;
-	}
+	public int interval;
 
 	public void open(Map conf, TopologyContext context, SpoutOutputCollector collector) {
 		// TODO Auto-generated method stub
 		_collector = collector;
-		pre_time = -1;
+	    Property property=new Property();
+	    interval=Integer.valueOf(property.getProperty("predict_interval"));
 	}
 
 	/* 查询数据 此节点负责查询内存数据 */
@@ -67,7 +52,7 @@ public class VM_Spout extends BaseRichSpout {
 			vMap.put(run_vm_list.get(j), 1);
 			//System.out.println("VM_Spout.nextTuple()");
 		}
-		InfluxdbOP influxdbOP = new InfluxdbOP();
+		InfluxdbOP influxdbOP = new InfluxdbOP(1);
 		for (int i = 0; i < meticarr.length; i++) {
 			String metic = meticarr[i];
 			JSONArray jArray = influxdbOP.getVMseries(metic);
@@ -81,7 +66,7 @@ public class VM_Spout extends BaseRichSpout {
 			}
 		}
 		try {
-			Thread.sleep(1000 * 10);
+			Thread.sleep(1000 * interval);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

@@ -31,7 +31,7 @@ public class predict_Bolt implements IRichBolt {
 		// TODO Auto-generated method stub
 		try {
 			// "metrics", "instance", "token", "current_time"
-			InfluxdbOP influxdbOP = new InfluxdbOP();
+			InfluxdbOP influxdbOP = new InfluxdbOP(1);
 			String metric = input.getStringByField("metrics");
 			Date current_date = new Date();
 			//System.out.println(current_date.toGMTString());
@@ -106,7 +106,7 @@ public class predict_Bolt implements IRichBolt {
 			newdate.setSeconds(0);
 			SimpleDateFormat df1 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 			for(int i=0;i<timelist.length;i++){
-				timelist[i]=newdate.getTime()*1000000;
+				timelist[i]=newdate.getTime();
 				//System.out.println(df1.format(newdate));
 				newdate.setTime(newdate.getTime()+60*1000);
 			}
